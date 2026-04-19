@@ -1,324 +1,150 @@
 pipeline {
     agent any
 
-    // ─────────────────────────────────────────────────────
-    // ENVIRONMENT VARIABLES
-    // ─────────────────────────────────────────────────────
     environment {
-        // Application identity
-        APP_NAME     = 'react-vite-cicd-app'
-        PROJECT_DIR  = 'C:\\Users\\hp\\Downloads\\Jenkins'
+        APP_NAME    = 'react-vite-cicd-app'
+        PROJECT_DIR = '/Users/hp/Downloads/Jenkins'   // ⚠️ CHANGE if needed
     }
 
-    // ─────────────────────────────────────────────────────
-    // OPTIONS
-    // ─────────────────────────────────────────────────────
     options {
         buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '5'))
         timeout(time: 30, unit: 'MINUTES')
         timestamps()
     }
 
-    // ─────────────────────────────────────────────────────
-    // PARAMETERS
-    // ─────────────────────────────────────────────────────
     parameters {
-        booleanParam(name: 'SKIP_TESTS',    defaultValue: false, description: 'Skip test stage')
-        booleanParam(name: 'SKIP_LINT',     defaultValue: false, description: 'Skip code quality (lint) stage')
+        booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Skip test stage')
+        booleanParam(name: 'SKIP_LINT', defaultValue: false, description: 'Skip lint stage')
     }
 
     stages {
 
-        // ══════════════════════════════════════════════
-        // STAGE 1: CHECKOUT — Copy source files
-        // ══════════════════════════════════════════════
+        // ✅ CHECKOUT
         stage('Checkout') {
             steps {
-                script {
-                    echo "╔══════════════════════════════════════╗"
-                    echo "║  STAGE 0: CHECKOUT SOURCE FILES      ║"
-                    echo "╚══════════════════════════════════════╝"
-                }
+                echo "Copying project files..."
 
-                // Copy project files into the Jenkins workspace
-                bat """
-                    @echo off
-                    echo ==^> Copying project files from ${PROJECT_DIR} ...
-                    xcopy /E /I /Y /Q "${PROJECT_DIR}\\package.json" . >nul 2>&1
-                    xcopy /E /I /Y /Q "${PROJECT_DIR}\\package-lock.json" . >nul 2>&1
-                    xcopy /E /I /Y /Q "${PROJECT_DIR}\\vite.config.js" . >nul 2>&1
-                    xcopy /E /I /Y /Q "${PROJECT_DIR}\\index.html" . >nul 2>&1
-                    xcopy /E /I /Y /Q "${PROJECT_DIR}\\.eslintrc.cjs" . >nul 2>&1
-                    if exist "${PROJECT_DIR}\\src" (
-                        xcopy /E /I /Y /Q "${PROJECT_DIR}\\src" src >nul 2>&1
-                    )
-                    echo ==^> Source files copied successfully
-                    echo ==^> Workspace contents:
-                    dir /B
-                """
-            }
+                sh '''
+                echo "Copying files from $PROJECT_DIR"
 
-            post {
-                success { echo "✅ CHECKOUT stage passed" }
-                failure { echo "❌ CHECKOUT stage failed" }
+                cp $PROJECT_DIR/package.json .
+                cp $PROJECT_DIR/package-lock.json .
+                cp $PROJECT_DIR/vite.config.js .
+                cp $PROJECT_DIR/index.html .
+                cp $PROJECT_DIR/.eslintrc.cjs .
+
+                if [ -d "$PROJECT_DIR/src" ]; then
+                    cp -r $PROJECT_DIR/src ./src
+                fi
+
+                echo "Workspace contents:"
+                ls -la
+                '''
             }
         }
 
-        // ══════════════════════════════════════════════
-        // STAGE 2: BUILD
-        // ══════════════════════════════════════════════
+        // ✅ BUILD
         stage('Build') {
             steps {
-                script {
-                    echo "╔══════════════════════════════════════╗"
-                    echo "║  STAGE 1: BUILD                      ║"
-                    echo "╚══════════════════════════════════════╝"
-                }
+                echo "Building app..."
 
-                // Install Node dependencies
-                bat """
-                    @echo off
-                    echo ==^> Node version:
-                    node --version
-                    echo ==^> npm version:
-                    npm --version
-                    echo ==^> Installing dependencies...
-                    npm install
-                    echo ==^> Dependencies installed successfully
-                """
+                sh '''
+                node --version
+                npm --version
 
-                // Run Vite production build
-                bat """
-                    @echo off
-                    echo ==^> Building React + Vite application...
-                    set VITE_BUILD_NUMBER=${BUILD_NUMBER}
-                    npm run build
-                    echo ==^> Build complete. Dist contents:
-                    dir dist
-                """
+                npm install
+                npm run build
 
-                // Archive dist artifacts
-                archiveArtifacts artifacts: 'dist/**', fingerprint: true, allowEmptyArchive: true
-            }
+                echo "Dist folder:"
+                ls -la dist || echo "No dist folder"
+                '''
 
-            post {
-                success { echo "✅ BUILD stage passed" }
-                failure { echo "❌ BUILD stage failed" }
+                archiveArtifacts artifacts: 'dist/**', fingerprint: true
             }
         }
 
-        // ══════════════════════════════════════════════
-        // STAGE 3: TEST
-        // ══════════════════════════════════════════════
+        // ✅ TEST
         stage('Test') {
             when {
                 not { expression { params.SKIP_TESTS } }
             }
             steps {
-                script {
-                    echo "╔══════════════════════════════════════╗"
-                    echo "║  STAGE 2: TEST                       ║"
-                    echo "╚══════════════════════════════════════╝"
-                }
-
-                // Run Vitest with coverage
-                bat """
-                    @echo off
-                    echo ==^> Running unit tests with coverage...
-                    npx vitest run --reporter=verbose --coverage
-                    echo ==^> Tests complete
-                """
-            }
-
-            post {
-                success { echo "✅ TEST stage passed" }
-                failure { echo "❌ TEST stage failed" }
+                sh '''
+                echo "Running tests..."
+                npx vitest run --coverage
+                '''
             }
         }
 
-        // ══════════════════════════════════════════════
-        // STAGE 4: CODE QUALITY (ESLint)
-        // ══════════════════════════════════════════════
+        // ✅ CODE QUALITY
         stage('Code Quality') {
             when {
                 not { expression { params.SKIP_LINT } }
             }
             steps {
-                script {
-                    echo "╔══════════════════════════════════════╗"
-                    echo "║  STAGE 3: CODE QUALITY (ESLint)      ║"
-                    echo "╚══════════════════════════════════════╝"
-                }
-
-                bat """
-                    @echo off
-                    echo ==^> Running ESLint code quality analysis...
-                    npx eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0 || echo ESLint completed with warnings (non-blocking)
-                    echo ==^> Code quality analysis complete
-                """
-            }
-
-            post {
-                success { echo "✅ CODE QUALITY stage passed" }
-                failure { echo "❌ CODE QUALITY stage failed" }
+                sh '''
+                echo "Running ESLint..."
+                npx eslint . --ext js,jsx || echo "Lint warnings ignored"
+                '''
             }
         }
 
-        // ══════════════════════════════════════════════
-        // STAGE 5: SECURITY (npm audit)
-        // ══════════════════════════════════════════════
+        // ✅ SECURITY
         stage('Security') {
             steps {
-                script {
-                    echo "╔══════════════════════════════════════╗"
-                    echo "║  STAGE 4: SECURITY SCANNING           ║"
-                    echo "╚══════════════════════════════════════╝"
-                }
-
-                bat """
-                    @echo off
-                    echo ==^> Running npm audit security scan...
-                    npm audit --audit-level=high || echo npm audit found vulnerabilities (non-blocking)
-                    echo ==^> Security scan complete
-                """
-            }
-
-            post {
-                success { echo "✅ SECURITY stage passed" }
-                failure { echo "❌ SECURITY stage failed" }
+                sh '''
+                echo "Running npm audit..."
+                npm audit --audit-level=high || echo "Vulnerabilities found"
+                '''
             }
         }
 
-        // ══════════════════════════════════════════════
-        // STAGE 6: DEPLOY (Preview)
-        // ══════════════════════════════════════════════
-        stage('Deploy') {
+        // ✅ DEPLOY CHECK
+        stage('Deploy Check') {
             steps {
-                script {
-                    echo "╔══════════════════════════════════════╗"
-                    echo "║  STAGE 5: DEPLOY (Preview Verify)     ║"
-                    echo "╚══════════════════════════════════════╝"
-                }
-
-                bat """
-                    @echo off
-                    echo ==^> Verifying build artifacts for deployment...
-                    if exist dist\\index.html (
-                        echo ✅ dist/index.html exists - deployment artifact ready
-                        echo ==^> Artifact listing:
-                        dir dist /S /B
-                        echo ==^> Deployment verification PASSED
-                    ) else (
-                        echo ❌ dist/index.html NOT found - build may have failed
-                        exit /b 1
-                    )
-                """
-            }
-
-            post {
-                success { echo "✅ DEPLOY stage passed" }
-                failure { echo "❌ DEPLOY stage failed" }
+                sh '''
+                if [ -f dist/index.html ]; then
+                    echo "✅ Build OK"
+                else
+                    echo "❌ Build FAILED"
+                    exit 1
+                fi
+                '''
             }
         }
 
-        // ══════════════════════════════════════════════
-        // STAGE 7: RELEASE (Tag)
-        // ══════════════════════════════════════════════
+        // ✅ RELEASE
         stage('Release') {
             steps {
-                script {
-                    echo "╔══════════════════════════════════════╗"
-                    echo "║  STAGE 6: RELEASE                     ║"
-                    echo "╚══════════════════════════════════════╝"
-                }
-
-                bat """
-                    @echo off
-                    echo ==^> Creating release tag...
-                    set RELEASE_TAG=v1.0.${BUILD_NUMBER}
-                    echo ==^> Release version: v1.0.${BUILD_NUMBER}
-                    echo ==^> Build number: ${BUILD_NUMBER}
-                    echo ==^> Release artifacts prepared successfully
-                    echo ✅ Release tag created: v1.0.${BUILD_NUMBER}
-                """
-            }
-
-            post {
-                success { echo "✅ RELEASE stage passed" }
-                failure { echo "❌ RELEASE stage failed" }
+                echo "Release version: v1.0.${BUILD_NUMBER}"
             }
         }
 
-        // ══════════════════════════════════════════════
-        // STAGE 8: MONITORING (Health Check)
-        // ══════════════════════════════════════════════
-        stage('Monitoring') {
+        // ✅ SUMMARY
+        stage('Summary') {
             steps {
-                script {
-                    echo "╔══════════════════════════════════════╗"
-                    echo "║  STAGE 7: MONITORING & SUMMARY        ║"
-                    echo "╚══════════════════════════════════════╝"
-                }
-
-                bat """
-                    @echo off
-                    echo.
-                    echo ════════════════════════════════════════
-                    echo   PIPELINE SUMMARY - Build #${BUILD_NUMBER}
-                    echo ════════════════════════════════════════
-                    echo   App Name    : ${APP_NAME}
-                    echo   Build No    : ${BUILD_NUMBER}
-                    echo   Workspace   : %WORKSPACE%
-                    echo   Status      : All stages completed
-                    echo ════════════════════════════════════════
-                    echo.
-                    echo ==^> Build artifacts:
-                    if exist dist (
-                        dir dist /S /B
-                    ) else (
-                        echo   No dist directory found
-                    )
-                    echo.
-                    echo ==^> Pipeline health: ALL GREEN
-                """
-            }
-
-            post {
-                success { echo "✅ MONITORING stage passed" }
-                failure { echo "❌ MONITORING stage failed" }
+                sh '''
+                echo "================================="
+                echo "Pipeline Summary"
+                echo "App: $APP_NAME"
+                echo "Build: $BUILD_NUMBER"
+                echo "================================="
+                '''
             }
         }
+    }
 
-    } // end stages
-
-    // ─────────────────────────────────────────────────────
-    // POST PIPELINE ACTIONS
-    // ─────────────────────────────────────────────────────
     post {
         always {
-            script {
-                echo "==> Pipeline finished: ${currentBuild.currentResult}"
-            }
+            echo "Result: ${currentBuild.currentResult}"
         }
 
         success {
-            echo """
-╔══════════════════════════════════════════╗
-║  ✅  PIPELINE SUCCESS — Build #${BUILD_NUMBER}  ║
-╚══════════════════════════════════════════╝
-            """
+            echo "✅ PIPELINE SUCCESS"
         }
 
         failure {
-            echo """
-╔══════════════════════════════════════════╗
-║  ❌  PIPELINE FAILED — Build #${BUILD_NUMBER}   ║
-╚══════════════════════════════════════════╝
-            """
-        }
-
-        unstable {
-            echo "⚠️  Pipeline UNSTABLE — Build #${BUILD_NUMBER} (tests may have partial failures)"
+            echo "❌ PIPELINE FAILED"
         }
     }
 }
