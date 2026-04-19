@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         APP_NAME    = 'react-vite-cicd-app'
-        PROJECT_DIR = '/Users/hp/Downloads/Jenkins'   // ⚠️ CHANGE if needed
+        PROJECT_DIR = '/Users/dhruvsangwan/Downloads/Jenkins'   // ⚠️ CHANGE if needed
     }
 
     options {
@@ -21,27 +21,10 @@ pipeline {
 
         // ✅ CHECKOUT
         stage('Checkout') {
-            steps {
-                echo "Copying project files..."
-
-                sh '''
-                echo "Copying files from $PROJECT_DIR"
-
-                cp $PROJECT_DIR/package.json .
-                cp $PROJECT_DIR/package-lock.json .
-                cp $PROJECT_DIR/vite.config.js .
-                cp $PROJECT_DIR/index.html .
-                cp $PROJECT_DIR/.eslintrc.cjs .
-
-                if [ -d "$PROJECT_DIR/src" ]; then
-                    cp -r $PROJECT_DIR/src ./src
-                fi
-
-                echo "Workspace contents:"
-                ls -la
-                '''
-            }
-        }
+    steps {
+        git 'https://github.com/dhruvsangwan0001/Jenkins'
+    }
+}
 
         // ✅ BUILD
         stage('Build') {
