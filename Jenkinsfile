@@ -25,7 +25,17 @@ pipeline {
         git 'https://github.com/dhruvsangwan0001/Jenkins'
     }
 }
-
+        
+stage('Check Node') {
+    steps {
+        sh '''
+        echo "PATH: $PATH"
+        which node
+        node -v
+        npm -v
+        '''
+    }
+}
         // ✅ BUILD
         stage('Build') {
             steps {
