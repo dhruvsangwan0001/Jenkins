@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+*.log
+npm-debug.log*
+.env
+.env.local
+.env.production
+npm-audit-report.json
+trivy-report.json
+trivy-report.txt
+dependency-check-report/
+test-results.xml
+.sonar/

@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # ── React App (Staging) ──────────────────────────────
+  app-staging:
+    image: ${DOCKER_IMAGE:-react-vite-app}:${IMAGE_TAG:-latest}
+    container_name: react-app-staging
+    restart: unless-stopped
+    ports:
+      - "3001:80"
+    environment:
+      - NODE_ENV=staging
+    labels:
+      - "app=react-vite-cicd"
+      - "env=staging"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - app-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── Prometheus ───────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: prometheus-staging
+    restart: unless-stopped
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_staging_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.enable-lifecycle'
+    networks:
+      - app-network
+
+  # ── Grafana ──────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: grafana-staging
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin123}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - grafana_staging_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - app-network
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus_staging_data:
+  grafana_staging_data:
+
+networks:
+  app-network:
+    driver: bridge

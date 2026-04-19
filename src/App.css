@@ -1,0 +1,4 @@
+/* App-level styles override (minimal - main styles in index.css) */
+.app-container {
+  min-height: 100vh;
+}
