@@ -92,16 +92,26 @@ pipeline {
             }
         }
 
-        // ✅ DEPLOY CHECK
-        stage('Deploy Check') {
+        // 🚀 REAL DEPLOY (LOCAL SERVER)
+        stage('Deploy') {
             steps {
                 sh '''
-                if [ -f dist/index.html ]; then
-                    echo "✅ Build OK"
-                else
-                    echo "❌ Build FAILED"
-                    exit 1
-                fi
+                echo "Starting local deployment..."
+
+                # Install serve if not installed
+                npm install -g serve
+
+                # Kill any previous instance (avoid port conflict)
+                pkill -f "serve -s dist" || true
+
+                # Run server in background
+                nohup serve -s dist -l 3000 > serve.log 2>&1 &
+
+                sleep 5
+
+                echo "✅ App deployed locally at http://localhost:3000"
+                echo "Logs:"
+                tail -n 5 serve.log || true
                 '''
             }
         }
@@ -121,6 +131,7 @@ pipeline {
                 echo "Pipeline Summary"
                 echo "App: $APP_NAME"
                 echo "Build: $BUILD_NUMBER"
+                echo "Deployment: http://localhost:3000"
                 echo "================================="
                 '''
             }
