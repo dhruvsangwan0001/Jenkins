@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     environment {
-        APP_NAME    = 'react-vite-cicd-app'
-        PROJECT_DIR = '/Users/dhruvsangwan/Downloads/Jenkins'   // ⚠️ CHANGE if needed
+        APP_NAME = 'react-vite-cicd-app'
+        PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
     }
 
     options {
@@ -19,37 +19,37 @@ pipeline {
 
     stages {
 
-        // ✅ CHECKOUT
-        stage('Checkout') {
-    steps {
-        git 'https://github.com/dhruvsangwan0001/Jenkins'
-    }
-}
-        
-stage('Check Node') {
-    steps {
-        sh '''
-        echo "PATH: $PATH"
-        which node
-        node -v
-        npm -v
-        '''
-    }
-}
+        // ✅ CHECK NODE
+        stage('Check Node') {
+            steps {
+                sh '''
+                echo "PATH: $PATH"
+                which node
+                node -v
+                npm -v
+                '''
+            }
+        }
+
         // ✅ BUILD
         stage('Build') {
             steps {
                 echo "Building app..."
 
                 sh '''
-                node --version
-                npm --version
-
+                echo "Installing dependencies..."
                 npm install
+
+                echo "Running build..."
                 npm run build
 
-                echo "Dist folder:"
-                ls -la dist || echo "No dist folder"
+                echo "Checking dist folder..."
+                if [ -d "dist" ]; then
+                    ls -la dist
+                else
+                    echo "❌ dist folder not found"
+                    exit 1
+                fi
                 '''
 
                 archiveArtifacts artifacts: 'dist/**', fingerprint: true
