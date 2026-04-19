@@ -92,29 +92,30 @@ pipeline {
             }
         }
 
-        // 🚀 REAL DEPLOY (LOCAL SERVER)
-        stage('Deploy') {
-            steps {
-                sh '''
-                echo "Starting local deployment..."
+   
+     stage('Deploy') {
+    steps {
+        sh '''
+        echo "Starting deployment..."
 
-                # Install serve if not installed
-                npm install -g serve
+        npm install -g serve
 
-                # Kill any previous instance (avoid port conflict)
-                pkill -f "serve -s dist" || true
+        # Kill old process
+        pkill -f "serve -s dist" || true
 
-                # Run server in background
-                nohup serve -s dist -l 3000 > serve.log 2>&1 &
+        # Start server (bind to all interfaces)
+        nohup serve -s dist -l tcp://0.0.0.0:3000 > serve.log 2>&1 &
 
-                sleep 5
+        sleep 5
 
-                echo "✅ App deployed locally at http://localhost:3000"
-                echo "Logs:"
-                tail -n 5 serve.log || true
-                '''
-            }
-        }
+        echo "Checking server..."
+        lsof -i :3000 || echo "Server not running"
+
+        echo "Logs:"
+        tail -n 10 serve.log || true
+        '''
+    }
+}
 
         // ✅ RELEASE
         stage('Release') {
